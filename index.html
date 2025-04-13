@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>مفكرة مع منبه</title>
+  <style>
+    body {
+      font-family: Arial;
+      direction: rtl;
+      background-color: #f3f3f3;
+      padding: 20px;
+    }
+    input, button {
+      padding: 10px;
+      font-size: 16px;
+      margin: 5px 0;
+    }
+    .task {
+      background: white;
+      border-radius: 8px;
+      padding: 10px;
+      margin: 8px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .delete {
+      color: red;
+      cursor: pointer;
+      margin-left: 10px;
+    }
+    .time {
+      font-size: 12px;
+      color: #829171;
+    }
+    .completed {
+      text-decoration: line-through;
+      color: gray;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>مفكرة المهام مع منبه</h2>
+  <input type="text" id="joob" placeholder="أدخل المهمة">
+  <input type="datetime-local" id="jobTime">
+  <button onclick="addTask()">إضافة</button>
+
+  <div id="taskList"></div>
+
+  <audio id="alarmSound" src="https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3" preload="auto"></audio>
+
+  <script>
+    let taskListElement = document.getElementById("taskList");
+    let alarmSound = document.getElementById("alarmSound");
+    let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+
+    // عرض المهام عند تحميل الصفحة
+    window.onload = () => {
+      requestNotificationPermission();
+      renderTasks();
+      startCheckingAlarms();
+    };
+
+    function addTask() {
+      let input = document.getElementById("joob");
+      let timeInput = document.getElementById("jobTime");
+
+      let text = input.value.trim();
+      let time = timeInput.value;
+
+      if (text === "" || time === "") return;
+
+      let newTask = {
+        text: text,
+        done: false,
+        time: new Date(time).toISOString(),
+        alerted: false // لمنع تكرار التنبيه
+      };
+
+      tasks.push(newTask);
+      saveTasks();
+      renderTasks();
+
+      input.value = "";
+      timeInput.value = "";
+    }
+
+    function renderTasks() {
+      taskListElement.innerHTML = "";
+      tasks.forEach((task, index) => {
+        let div = document.createElement("div");
+        div.className = "task";
+
+        let textSpan = document.createElement("span");
+        textSpan.innerText = task.text;
+        if (task.done) textSpan.classList.add("completed");
+        textSpan.onclick = () => toggleDone(index);
+
+        let timeDiv = document.createElement("div");
+        timeDiv.className = "time";
+        let t = new Date(task.time);
+        timeDiv.innerText = "موعد: " + t.toLocaleString();
+
+        let del = document.createElement("span");
+        del.innerText = "✖";
+        del.className = "delete";
+        del.onclick = () => deleteTask(index);
+
+        let left = document.createElement("div");
+        left.appendChild(timeDiv);
+        left.appendChild(del);
+
+        div.appendChild(textSpan);
+        div.appendChild(left);
+
+        taskListElement.appendChild(div);
+      });
+    }
+
+    function toggleDone(index) {
+      tasks[index].done = !tasks[index].done;
+      saveTasks();
+      renderTasks();
+    }
+
+    function deleteTask(index) {
+      tasks.splice(index, 1);
+      saveTasks();
+      renderTasks();
+    }
+
+    function saveTasks() {
+      localStorage.setItem("tasks", JSON.stringify(tasks));
+    }
+
+    function startCheckingAlarms() {
+      setInterval(() => {
+        let now = new Date();
+        tasks.forEach((task, index) => {
+          if (!task.alerted && new Date(task.time) <= now) {
+            task.alerted = true;
+            showNotification(task.text);
+            alarmSound.play();
+            saveTasks();
+            renderTasks();
+          }
+        });
+      }, 1000); // كل ثانية
+    }
+
+    function requestNotificationPermission() {
+      if ('Notification' in window) {
+        Notification.requestPermission();
+      }
+    }
+
+    function showNotification(text) {
+      if (Notification.permission === "granted") {
+        new Notification("تنبيه المهمة", {
+          body: text,
+          icon: "https://cdn-icons-png.flaticon.com/512/1828/1828665.png"
+        });
+      } else {
+        alert("تنبيه: " + text);
+      }
+    }
+  </script>
+
+</body>
+</html>
